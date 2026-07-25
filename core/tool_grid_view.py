@@ -23,7 +23,7 @@ class ToolGridView(ctk.CTkScrollableFrame):
       lbl = ctk.CTkLabel(
           self,
           text="👤 个人中心页面",
-          font=ctk.CTkFont(size=20, weight="bold"),
+          font=config.get_font(size=20, weight="bold"),
       )
       lbl.pack(pady=50)
       return
@@ -34,7 +34,7 @@ class ToolGridView(ctk.CTkScrollableFrame):
       empty_lbl = ctk.CTkLabel(
           self,
           text="📁 该分类下暂无工具",
-          font=ctk.CTkFont(size=16),
+          font=config.get_font(size=16),
           text_color="gray",
       )
       empty_lbl.pack(pady=100)

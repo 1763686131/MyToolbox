@@ -5,15 +5,16 @@ import customtkinter as ctk
 from pypdf import PdfReader, PdfWriter
 import config
 
+
 class PDFCropDialog(ctk.CTkToplevel):
 
-  """三级：PDF 工具独立弹窗窗口（已修复按钮显示问题）"""
+  """三级：PDF 工具独立弹窗窗口（已全量统一自定义字体）"""
 
   def __init__(self, master, *args, **kwargs):
     super().__init__(master, *args, **kwargs)
 
     self.title("📄 PDF 上半部分批量截取合并工具")
-    self.geometry("560x520")  # 💡 稍微调大高度，给控件充足空间
+    self.geometry("560x520")
     self.resizable(False, False)
 
     # 确保窗口置顶与获得焦点
@@ -31,17 +32,25 @@ class PDFCropDialog(ctk.CTkToplevel):
     ctk.CTkLabel(
         f1,
         text="1. 选择 PDF 输入文件夹:",
-        font = config.get_font(size=13, weight="bold"),
+        font=config.get_font(size=13, weight="bold"),
     ).pack(anchor="w", pady=(0, 5))
 
     self.folder_path = ctk.StringVar()
+    # ✍️ 补充 font
     ctk.CTkEntry(
         f1,
         textvariable=self.folder_path,
         placeholder_text="点击右侧按钮选择文件夹...",
+        font=config.get_font(size=12),
     ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+    # ✍️ 补充 font
     ctk.CTkButton(
-        f1, text="浏览...", width=80, command=self._select_folder
+        f1,
+        text="浏览...",
+        width=80,
+        font=config.get_font(size=12),
+        command=self._select_folder,
     ).pack(side="right")
 
     # 2. 选择指定输出文件路径
@@ -51,17 +60,25 @@ class PDFCropDialog(ctk.CTkToplevel):
     ctk.CTkLabel(
         f2,
         text="2. 指定合并后的输出文件:",
-        font = config.get_font(size=13, weight="bold"),
+        font=config.get_font(size=13, weight="bold"),
     ).pack(anchor="w", pady=(0, 5))
 
     self.output_path = ctk.StringVar()
+    # ✍️ 补充 font
     ctk.CTkEntry(
         f2,
         textvariable=self.output_path,
         placeholder_text="默认保存在输入目录下，也可点击右侧另存为...",
+        font=config.get_font(size=12),
     ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+    # ✍️ 补充 font
     ctk.CTkButton(
-        f2, text="另存为...", width=80, command=self._select_output_file
+        f2,
+        text="另存为...",
+        width=80,
+        font=config.get_font(size=12),
+        command=self._select_output_file,
     ).pack(side="right")
 
     # 3. 比例设置
@@ -71,34 +88,48 @@ class PDFCropDialog(ctk.CTkToplevel):
     ctk.CTkLabel(
         f3,
         text="3. 截取比例 (默认 0.5 即保留上半部分):",
-        font = config.get_font(size=13, weight="bold"),
+        font=config.get_font(size=13, weight="bold"),
     ).pack(anchor="w", pady=(0, 5))
 
     self.ratio_var = ctk.StringVar(value="0.5")
-    ctk.CTkEntry(f3, textvariable=self.ratio_var, width=100).pack(
-        side="left", padx=(0, 10)
-    )
-    ctk.CTkLabel(f3, text="范围 0.1~0.9", text_color="gray").pack(side="left")
+    # ✍️ 补充 font
+    ctk.CTkEntry(
+        f3,
+        textvariable=self.ratio_var,
+        width=100,
+        font=config.get_font(size=12),
+    ).pack(side="left", padx=(0, 10))
 
-    # 💡 【关键修复】：先把执行按钮固定锁定在最底部 (side="bottom")
+    # ✍️ 补充 font
+    ctk.CTkLabel(
+        f3,
+        text="范围 0.1~0.9",
+        text_color="gray",
+        font=config.get_font(size=12),
+    ).pack(side="left")
+
+    # 4. 执行按钮
     self.btn_run = ctk.CTkButton(
         self,
-        text="🚀 开始处理并合并",
+        text="开始处理并合并",
         height=40,
-        font = config.get_font(size=14, weight="bold"),
+        font=config.get_font(size=14, weight="bold"),
         command=self._start_thread,
     )
     self.btn_run.pack(side="bottom", fill="x", padx=20, pady=(10, 20))
 
-    # 4. 日志面板（最后 pack，它会自动挤在输入框和底端按钮之间）
+    # 5. 日志面板
     f4 = ctk.CTkFrame(self, fg_color="transparent")
     f4.pack(side="top", fill="both", expand=True, padx=20, pady=5)
 
     ctk.CTkLabel(
-        f4, text="4. 处理进度与日志:", font = config.get_font(size=13, weight="bold")
+        f4,
+        text="4. 处理进度与日志:",
+        font=config.get_font(size=13, weight="bold"),
     ).pack(anchor="w", pady=(0, 5))
 
-    self.log_text = ctk.CTkTextbox(f4)
+    # ✍️ 补充 font，确保日志文本也显示方圆体
+    self.log_text = ctk.CTkTextbox(f4, font=config.get_font(size=12))
     self.log_text.pack(fill="both", expand=True)
 
   def _select_folder(self):
@@ -146,13 +177,13 @@ class PDFCropDialog(ctk.CTkToplevel):
       return
 
     self.btn_run.configure(state="disabled")
-    self.log("🚀 开始扫描 PDF 文件...")
+    self.log("开始扫描 PDF 文件...")
 
     pdf_files = sorted(
         [f for f in os.listdir(folder) if f.lower().endswith(".pdf")]
     )
     if not pdf_files:
-      self.log("⚠️ 目录内未找到任何 PDF 文件！")
+      self.log("目录内未找到任何 PDF 文件！")
       self.btn_run.configure(state="normal")
       return
 
@@ -186,8 +217,8 @@ class PDFCropDialog(ctk.CTkToplevel):
 
       with open(out_file, "wb") as f_out:
         writer.write(f_out)
-      self.log(f"\n🎉 处理完毕！共合并 {total_pages} 页。")
-      self.log(f"👉 保存文件至: {out_file}")
+      self.log(f"\n处理完毕！共合并 {total_pages} 页。")
+      self.log(f"保存文件至: {out_file}")
       messagebox.showinfo("成功", f"处理完成！已保存至:\n{out_file}")
     except Exception as e:
       self.log(f"❌ 保存合并文件失败: {e}")
