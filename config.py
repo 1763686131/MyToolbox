@@ -1,25 +1,33 @@
 import customtkinter as ctk
+import os
 
 # 软件外观配置
 APP_TITLE = "千城工具箱"
 WINDOW_SIZE = "1050x650"
 BG_COLOR = "#EDF5FC"  # 🎯 你的指定背景色
-FONT_FAMILY = "Microsoft JhengHei"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
+FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"
+FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", FONT_FILE_NAME)
+
+
+# 自动注册并加载字体包
+if os.path.exists(FONT_PATH):
+  try:
+    ctk.FontManager.load_font(FONT_PATH)
+    print(f"✅ 成功加载字体: {FONT_FILE_NAME}")
+  except Exception as e:
+    print(f"⚠️ 字体加载失败: {e}")
+else:
+  print(f"⚠️ 未找到字体文件，请检查路径: {FONT_PATH}")
+
+
 
 def get_font(size=12, weight="normal"):
-  """统一字体获取函数
-
-  💡 修复说明：像“幼圆”这种字体在 Windows 中没有独立的粗体(Bold)文件。
-  如果强制传 weight="bold"，Tkinter 会加载失败并退回默认字体。
-  因此这里拦截“幼圆”字体，统一使用 "normal" 字重。
-  """
-  target_weight = weight
-
-  # 如果使用的是幼圆体，强制使用 normal 防崩
-  if FONT_FAMILY in ["幼圆", "YouYuan"]:
-    target_weight = "normal"
-
-  return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=target_weight)
+  """全局统一字体获取函数"""
+  return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=weight)
 
 
 # 三级架构配置
