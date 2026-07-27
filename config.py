@@ -41,7 +41,7 @@ NAV_MENU = [
                 "id": "pdf_crop",
                 "name": "PDF分割合并工具",
                 "desc": "批量将PDF页面截取上半部分并整合为一个文档",
-                "icon": "📄",
+                "icon": "assets/icon/PDF.png",
                 "dialog_module": "views.office.pdf_crop_dialog",
                 "dialog_class": "PDFCropDialog",  # 三级弹窗类
             },
