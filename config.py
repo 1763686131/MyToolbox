@@ -3,9 +3,9 @@ import os
 import sys
 
 # 软件外观配置
-APP_TITLE = "千城工具箱"
-WINDOW_SIZE = "1050x650"
-BG_COLOR = "#EDF5FC"  # 🎯 你的指定背景色
+APP_TITLE = "千城工具箱"  #名字
+WINDOW_SIZE = "1050x650" #屏幕尺寸
+BG_COLOR = "#EDF5FC"  #背景颜色
 
 # --- 兼容 PyInstaller 打包 ---
 if getattr(sys, 'frozen', False):
@@ -15,6 +15,8 @@ else:
     # 如果运行的是 .py 源码文件，使用当前文件所在目录
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+# 字体配置
 FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
 FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"
 FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", FONT_FILE_NAME)
@@ -31,7 +33,7 @@ else:
   print(f"⚠️ 未找到字体文件，请检查路径: {FONT_PATH}")
 
 
-
+# 字体函数
 def get_font(size=12, weight="normal"):
   """全局统一字体获取函数"""
   return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=weight)
@@ -52,13 +54,22 @@ NAV_MENU = [
                 "dialog_module": "views.office.pdf_crop_dialog",
                 "dialog_class": "PDFCropDialog",  # 三级弹窗类
             },
-            # 💡 以后有新的办公工具，直接在此追加卡片字典即可
+            
         ],
     },
     {
         "id": "system",
         "name": "系统维护",
-        "tools": [],
+        "tools": [
+           {
+                "id": "360",
+                "name": "360驱动大师网卡版",
+                "desc": "一键启动内置驱动大师软件，方便电脑维护",
+                "icon": "assets/icon/360.png",
+                "dialog_module": "views.system.driver_master_dialog",
+                "dialog_class": "DriverMasterDialog",  # 三级弹窗类
+            },
+        ],
     },
     {
         "id": "game",

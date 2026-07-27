@@ -13,7 +13,7 @@ class PDFCropDialog(ctk.CTkToplevel):
   def __init__(self, master, *args, **kwargs):
     super().__init__(master, *args, **kwargs)
 
-    self.title("📄 PDF 上半部分批量截取合并工具")
+    self.title("PDF 上半部分批量截取合并工具")
     self.geometry("560x520")
     self.resizable(False, False)
 

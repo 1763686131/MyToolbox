@@ -5,6 +5,7 @@ from core.top_navbar import TopNavbar
 
 # 让打包软件 PyInstaller 识别并包含 views.office.pdf_crop_dialog 模块 不要删除
 import views.office.pdf_crop_dialog
+import views.system.driver_master_dialog
 
 
 

@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+tools/
+
+
 # 忽略所有编译后的字节码文件（保险起见）
 *.py[cod]
 *$py.class
