@@ -1,12 +1,19 @@
 import customtkinter as ctk
 import os
+import sys
 
 # 软件外观配置
 APP_TITLE = "千城工具箱"
 WINDOW_SIZE = "1050x650"
 BG_COLOR = "#EDF5FC"  # 🎯 你的指定背景色
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# --- 兼容 PyInstaller 打包 ---
+if getattr(sys, 'frozen', False):
+    # 如果运行的是打包后的 .exe 文件，使用临时解压目录
+    BASE_DIR = sys._MEIPASS
+else:
+    # 如果运行的是 .py 源码文件，使用当前文件所在目录
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
 FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"

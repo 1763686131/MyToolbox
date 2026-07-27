@@ -11,8 +11,8 @@ class ToolGridView(ctk.CTkScrollableFrame):
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
-        self.current_dialog = None
-
+        self.dialogs = {}
+        
     def render_category(self, cat_id):
         # 清空现有子控件
         for widget in self.winfo_children():
@@ -33,7 +33,7 @@ class ToolGridView(ctk.CTkScrollableFrame):
         if not target_cat or not target_cat["tools"]:
             empty_lbl = ctk.CTkLabel(
                 self,
-                text="📁 该分类下暂无工具",
+                text="📁该分类下暂无工具",
                 font=config.get_font(size=16),
                 text_color="gray",
             )
@@ -123,17 +123,18 @@ class ToolGridView(ctk.CTkScrollableFrame):
         btn_open.pack(anchor="e", padx=15, pady=(5, 10))
 
     def _launch_tool_dialog(self, tool_info):
-        """动态加载并弹出三级窗口"""
+        tool_id = tool_info["id"]
         try:
             module = importlib.import_module(tool_info["dialog_module"])
             dialog_cls = getattr(module, tool_info["dialog_class"])
 
-            if (
-                self.current_dialog is None
-                or not self.current_dialog.winfo_exists()
-            ):
-                self.current_dialog = dialog_cls(self)
+            # 从字典中获取对应的弹窗实例
+            current_dlg = self.dialogs.get(tool_id)
+
+            if current_dlg is None or not current_dlg.winfo_exists():
+                # 创建新实例并存入字典
+                self.dialogs[tool_id] = dialog_cls(self)
             else:
-                self.current_dialog.focus()  
+                current_dlg.focus()  
         except Exception as e:
             print(f"❌ 启动工具弹窗失败: {e}")
