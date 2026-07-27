@@ -1,5 +1,4 @@
-### 文档说明
-
+# 文档说明
 
 ``` Plaintext
 
@@ -16,4 +15,22 @@ MyToolbox/
     └── office/
         └── pdf_crop_dialog.py # 📄 PDF截取合并工具 (独立弹窗 CTkToplevel)
 
+```
+
+## 新环境安装配置
+
+```bash
+
+python -m pip install -r requirements.txt
+```
+
+
+## 打包代码
+
+``` bash
+
+py -m PyInstaller -F -w --add-data "assets;assets" main.py
+
+
+python -m PyInstaller -n "千城工具箱" -i "assets/app.ico" -F -w --add-data "assets;assets" main.py
 ```
