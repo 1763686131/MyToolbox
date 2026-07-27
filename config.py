@@ -16,6 +16,21 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+def get_tool_path(exe_name):
+    """
+    全局公共方法：智能获取外部 .exe 工具的真实绝对路径
+    """
+    # 1. 智能获取运行目录（兼容纯代码运行和打包后运行）
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.abspath(".")
+        
+    # 2. 拼接并返回最终的工具路径
+    return os.path.join(base_dir, "tools", exe_name)
+
+
+
 # 字体配置
 FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
 FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"

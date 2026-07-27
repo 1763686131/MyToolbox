@@ -21,7 +21,7 @@ MyToolbox/
 
 ```bash
 
-python -m pip install -r requirements.txt
+py -m pip install -r requirements.txt
 ```
 
 
@@ -32,5 +32,5 @@ python -m pip install -r requirements.txt
 py -m PyInstaller -F -w --add-data "assets;assets" main.py
 
 
-python -m PyInstaller -n "千城工具箱" -i "assets/app.ico" -F -w --add-data "assets;assets" main.py
+py -m PyInstaller -n "千城工具箱" -i "assets/app.ico" -F -w --add-data "assets;assets" main.py
 ```
