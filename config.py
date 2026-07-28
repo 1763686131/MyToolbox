@@ -78,12 +78,14 @@ NAV_MENU = [
         "name": "系统维护",
         "tools": [
            {
-                "id": "360",
-                "name": "360驱动大师网卡版",
-                "desc": "一键启动内置驱动大师软件，方便电脑维护",
+                "id": "driver_master",
+                "name": "360驱动大师",
+                "desc": "装机必备网卡驱动软件",
                 "icon": "assets/icon/360.png",
-                "dialog_module": "views.system.driver_master_dialog",
-                "dialog_class": "DriverMasterDialog",  # 三级弹窗类
+                "dialog_module": "views.system.cloud_tool_dialog", 
+                "dialog_class": "CloudToolDialog",
+                # 直接在这里把参数传过去！
+                "exe_name": "360驱动大师网卡版2.0.0.2040.exe" 
             },
         ],
     },
@@ -93,6 +95,17 @@ NAV_MENU = [
         "tools": [],
     },
 ]
+
+# 本地测试用 127.0.0.1，以后你只需要在这里把网址改成你的花生壳域名，全软件生效！
+API_BASE_URL = "http://127.0.0.1:4566" 
+
+def get_api_download_url(exe_name):
+    """
+    全局公共方法：智能生成云端下载完整链接
+    """
+    return f"{API_BASE_URL}/api/tools/{exe_name}/download"
+
+
 
 # 个人中心（右侧固定项）
 USER_CENTER_ITEM = {"id": "user_center", "name": "个人中心"}

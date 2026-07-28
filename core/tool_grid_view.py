@@ -127,14 +127,13 @@ class ToolGridView(ctk.CTkScrollableFrame):
         try:
             module = importlib.import_module(tool_info["dialog_module"])
             dialog_cls = getattr(module, tool_info["dialog_class"])
-
-            # 从字典中获取对应的弹窗实例
-            current_dlg = self.dialogs.get(tool_id)
-
-            if current_dlg is None or not current_dlg.winfo_exists():
-                # 创建新实例并存入字典
-                self.dialogs[tool_id] = dialog_cls(self)
+            
+            # 🔥 如果它在 config 里配置了 exe_name，我们就把参数传进去！
+            if "exe_name" in tool_info:
+                dialog = dialog_cls(self, display_name=tool_info["name"], exe_name=tool_info["exe_name"])
             else:
-                current_dlg.focus()  
+                dialog = dialog_cls(self)
+                
+            self.dialogs[tool_id] = dialog
         except Exception as e:
             print(f"❌ 启动工具弹窗失败: {e}")
