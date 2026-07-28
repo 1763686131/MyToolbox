@@ -16,6 +16,7 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+
 def get_tool_path(exe_name):
     """
     全局公共方法：智能获取外部 .exe 工具的真实绝对路径
