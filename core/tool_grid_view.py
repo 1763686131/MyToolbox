@@ -1,5 +1,6 @@
 import importlib
 import os
+import webbrowser
 import config
 import customtkinter as ctk
 from PIL import Image  # 确保你本地已经 pip install Pillow
@@ -123,6 +124,9 @@ class ToolGridView(ctk.CTkScrollableFrame):
         btn_open.pack(anchor="e", padx=15, pady=(5, 10))
 
     def _launch_tool_dialog(self, tool_info):
+        if "url" in tool_info:
+            webbrowser.open(tool_info["url"])    #如果是链接，直接调动浏览器
+            return
         tool_id = tool_info["id"]
         try:
             module = importlib.import_module(tool_info["dialog_module"])

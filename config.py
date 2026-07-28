@@ -70,6 +70,15 @@ NAV_MENU = [
                 "dialog_module": "views.office.pdf_crop_dialog",
                 "dialog_class": "PDFCropDialog",  # 三级弹窗类
             },
+            {
+                "id": "online_pdf",
+                "name": "在线 PDF 转换",
+                "desc": "无需下载，在浏览器中一键转换 PDF",
+                "icon": "assets/icon/PDF.png",  # 你自己准备个图标就行
+                
+                # 🔥 重点：没有任何复杂的弹窗配置，只要填上网址！
+                "url": "https://www.ilovepdf.com/zh-cn"
+            },
             
         ],
     },
