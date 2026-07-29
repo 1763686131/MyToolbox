@@ -114,4 +114,4 @@ def get_font(size=12, weight="normal"):
         return ("Microsoft YaHei", size, weight)
 
 
-USER_CENTER_ITEM = {"id": "user_center", "name": "👤 个人中心"}
+USER_CENTER_ITEM = {"id": "user_center", "name": "个人中心"}

@@ -43,7 +43,7 @@ class TopNavbar(ctk.CTkFrame):
         user_center_info = getattr(
             config,
             "USER_CENTER_ITEM",
-            {"id": "user_center", "name": "👤 个人中心"},
+            {"id": "user_center", "name": "个人中心"},
         )
 
         user_btn = ctk.CTkButton(
@@ -69,7 +69,7 @@ class TopNavbar(ctk.CTkFrame):
 
         for cid, btn in self.buttons.items():
             if cid == cat_id:
-                btn.configure(fg_color="#1677FF", text_color="#FFFFFF")
+                btn.configure(fg_color="#1677FF", text_color="#F0F0F0")
             else:
                 if cid == user_center_id:
                     btn.configure(fg_color="transparent", text_color="black")
