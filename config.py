@@ -94,6 +94,7 @@ NAV_MENU = [
                 "dialog_module": "views.system.cloud_tool_dialog", 
                 "dialog_class": "CloudToolDialog",
                 # 直接在这里把参数传过去！
+                "sub_dir": "system_files",
                 "exe_name": "360驱动大师网卡版2.0.0.2040.exe" 
             },
         ],

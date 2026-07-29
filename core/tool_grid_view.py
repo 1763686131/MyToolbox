@@ -127,6 +127,7 @@ class ToolGridView(ctk.CTkScrollableFrame):
         if "url" in tool_info:
             webbrowser.open(tool_info["url"])    #如果是链接，直接调动浏览器
             return
+            
         tool_id = tool_info["id"]
         try:
             module = importlib.import_module(tool_info["dialog_module"])
@@ -134,7 +135,12 @@ class ToolGridView(ctk.CTkScrollableFrame):
             
             # 🔥 如果它在 config 里配置了 exe_name，我们就把参数传进去！
             if "exe_name" in tool_info:
-                dialog = dialog_cls(self, display_name=tool_info["name"], exe_name=tool_info["exe_name"])
+                dialog = dialog_cls(
+                    self, 
+                    display_name=tool_info["name"], 
+                    exe_name=tool_info["exe_name"],
+                    sub_dir=tool_info.get("sub_dir", "others")  # 👉 核心修复：精准传递文件夹分类名！
+                )
             else:
                 dialog = dialog_cls(self)
                 
