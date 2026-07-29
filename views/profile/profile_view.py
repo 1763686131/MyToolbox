@@ -176,16 +176,21 @@ class ProfileView(ctk.CTkFrame):
             )
             opt_type.grid(row=2, column=1, sticky="w", pady=6)
 
-            # 表单项 4: 栏目子目录
+            # 表单项 4: 栏目子目录 (动态读取 appdata.json)
             ctk.CTkLabel(
                 form_grid,
                 text="保存分类:",
                 font=config.get_font(size=12, weight="bold"),
             ).grid(row=3, column=0, sticky="e", padx=(0, 10), pady=6)
-            self.var_category = ctk.StringVar(value="system_files")
+            
+            # 💡 核心：遍历 config.NAV_MENU，提取出中文名字和英文 ID 的映射
+            self.category_map = {cat["name"]: cat["id"] for cat in config.NAV_MENU}
+            cat_names_list = list(self.category_map.keys()) # 得到类似 ["系统维护", "游戏辅助"]
+            
+            self.var_category = ctk.StringVar(value=cat_names_list[0] if cat_names_list else "无分类")
             opt_cat = ctk.CTkOptionMenu(
                 form_grid,
-                values=["system_files", "office", "games"],
+                values=cat_names_list, # 下拉框直接显示友好的中文名！
                 variable=self.var_category,
                 font=config.get_font(size=12),
             )
@@ -312,9 +317,12 @@ class ProfileView(ctk.CTkFrame):
         threading.Thread(target=self._upload_task, daemon=True).start()
 
     def _upload_task(self):
-        category = self.var_category.get()
+        # 💡 核心：把下拉框选中的中文（如“系统维护”），反向查出英文ID（如“system”）
+        selected_chinese_name = self.var_category.get()
+        category_id = self.category_map.get(selected_chinese_name, "others")
+        
         # 请根据实际情况填入你的 NAS 局域网/公网接口地址
-        upload_url = f"http://127.0.0.1:4566/api/tools/{category}/upload"
+        upload_url = f"http://127.0.0.1:4566/api/tools/{category_id}/upload"
 
         try:
             with open(self.upload_file_path, "rb") as f:
