@@ -19,14 +19,24 @@ class ToolGridView(ctk.CTkScrollableFrame):
         for widget in self.winfo_children():
             widget.destroy()
 
-        # 个人中心单独展示
+        # 🔥 个人中心单独展示（核心修改区）
         if cat_id == "user_center":
-            lbl = ctk.CTkLabel(
-                self,
-                text="👤 个人中心页面",
-                font=config.get_font(size=20, weight="bold"),
-            )
-            lbl.pack(pady=50)
+            try:
+                # 动态引入我们写好的高级个人中心组件
+                from views.profile.profile_view import ProfileView
+                
+                # 实例化并让它铺满整个网格区域
+                profile_page = ProfileView(self)
+                profile_page.pack(fill="both", expand=True)
+            except Exception as e:
+                # 如果找不到文件或代码有错，给个友好的报错提示
+                error_lbl = ctk.CTkLabel(
+                    self,
+                    text=f"❌ 加载个人中心失败:\n{e}",
+                    text_color="red",
+                    font=config.get_font(size=14)
+                )
+                error_lbl.pack(pady=50)
             return
 
         # 查找对应分类
@@ -44,7 +54,6 @@ class ToolGridView(ctk.CTkScrollableFrame):
         # 渲染该分类下的工具卡片网格
         for tool in target_cat["tools"]:
             self._create_tool_card(tool)
-
     def _create_tool_card(self, tool_info):
         """创建漂亮的独立工具卡片"""
         card = ctk.CTkFrame(
