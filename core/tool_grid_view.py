@@ -1,21 +1,31 @@
 import importlib
 import os
-import time
 import json
 import requests
 import urllib.parse
 import webbrowser
+import sys
 import config
 import customtkinter as ctk
 from tkinter import messagebox
-from PIL import Image  # 确保你本地已经 pip install Pillow
+from PIL import Image
 
 class ToolGridView(ctk.CTkScrollableFrame):
-    """二级：工具网格容器 (展示工具卡片)"""
+    """二级：工具网格容器 (展示工具卡片 - 动态响应式版)"""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.dialogs = {}
+
+        if getattr(config, "HIDE_GLOBAL_SCROLLBARS", False):
+            self._scrollbar.grid_forget()
+        # 🚀 响应式布局：保存当前卡片对象，监听窗口尺寸变化
+        self.current_cards = []
+        self.current_max_cols = 0
+        self._resize_after_id = None
+        
+        # 绑定窗口大小改变事件
+        self.bind("<Configure>", self._on_resize)
 
     def _is_admin(self) -> bool:
         """判断当前登录的用户是否为管理员"""
@@ -27,10 +37,47 @@ class ToolGridView(ctk.CTkScrollableFrame):
         username = str(user_info.get("username", "")).lower()
         return role == "admin" or is_admin_flag is True or username == "admin"
 
+    # ==========================================
+    # 🚀 响应式布局引擎 (核心修改)
+    # ==========================================
+    def _on_resize(self, event):
+        """窗口改变大小时触发，加入防抖(Debounce)防止卡顿"""
+        if self._resize_after_id:
+            self.after_cancel(self._resize_after_id)
+        self._resize_after_id = self.after(100, self._layout_cards)
+
+    def _layout_cards(self):
+        """根据当前容器真实宽度，自动计算一排能放几个卡片，并重新洗牌"""
+        if not self.current_cards:
+            return
+
+        # 获取容器当前宽度 (预留出滚动条的空间)
+        available_width = self.winfo_width()
+        if available_width < 100:
+            available_width = 1000  # 还没渲染出来时的兜底宽度
+
+        # 卡片宽度 300 + 左右间距 30 = 330
+        max_cols = max(1, (available_width - 20) // 330)
+
+        # 如果列数没变，就无需重新渲染，节省性能
+        if getattr(self, "current_max_cols", 0) == max_cols:
+            return
+        
+        self.current_max_cols = max_cols
+
+        # 重新为所有卡片分配座位 (Row, Column)
+        for index, card in enumerate(self.current_cards):
+            row = index // max_cols
+            col = index % max_cols
+            card.grid(row=row, column=col, padx=15, pady=15)
+
     def render_category(self, cat_id):
         # 清空现有子控件
         for widget in self.winfo_children():
             widget.destroy()
+
+        self.current_cards = []
+        self.current_max_cols = 0  # 强制刷新布局
 
         # 🔥 个人中心单独展示
         if cat_id == "user_center":
@@ -40,10 +87,7 @@ class ToolGridView(ctk.CTkScrollableFrame):
                 profile_page.pack(fill="both", expand=True)
             except Exception as e:
                 error_lbl = ctk.CTkLabel(
-                    self,
-                    text=f"❌ 加载个人中心失败:\n{e}",
-                    text_color="red",
-                    font=config.get_font(size=14)
+                    self, text=f"❌ 加载个人中心失败:\n{e}", text_color="red", font=config.get_font(size=14)
                 )
                 error_lbl.pack(pady=50)
             return
@@ -52,55 +96,59 @@ class ToolGridView(ctk.CTkScrollableFrame):
         target_cat = next((c for c in config.NAV_MENU if c["id"] == cat_id), None)
         if not target_cat or not target_cat.get("tools"):
             empty_lbl = ctk.CTkLabel(
-                self,
-                text="📁该分类下暂无工具",
-                font=config.get_font(size=16),
-                text_color="gray",
+                self, text="📁该分类下暂无工具", font=config.get_font(size=16), text_color="gray"
             )
             empty_lbl.pack(pady=100)
             return
 
-        # 渲染该分类下的工具卡片网格
-        for tool in target_cat["tools"]:
-            # 💡 核心：软删除拦截，状态为 0 的直接隐身
-            if tool.get("status", 1) == 0:
-                continue
-            self._create_tool_card(tool, cat_id)
+        # 创建一个主容器来承载网格
+        self.grid_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.grid_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def _create_tool_card(self, tool_info, category_id=None):
+        # 过滤可视工具并生成卡片
+        visible_tools = [t for t in target_cat["tools"] if t.get("status", 1) != 0]
+        
+        for tool in visible_tools:
+            card = self._create_tool_card(self.grid_container, tool, cat_id)
+            self.current_cards.append(card)
+
+        # 刚生成完卡片，立刻进行一次完美的排版
+        self._layout_cards()
+
+    def _create_tool_card(self, parent_container, tool_info, category_id=None):
         """创建漂亮的独立工具卡片"""
         card = ctk.CTkFrame(
-            self,
+            parent_container,
             fg_color="#FFFFFF",
             corner_radius=12,
             width=300,
             height=160,
         )
-        card.pack(side="left", padx=15, pady=15)
+        card.grid_propagate(False)
         card.pack_propagate(False)
 
-        # 💡 管理员专属：右上角删除按钮
+        # 💡 管理员专属：强化的醒目红色关闭按钮，且强制置顶 (Lift)
         if self._is_admin():
             btn_delete = ctk.CTkButton(
                 card,
                 text="×",
-                width=22,
-                height=22,
-                corner_radius=11,
-                fg_color="transparent",
-                hover_color="#FF4D4F",  # 鼠标悬停变红
-                text_color="#888888",
-                font=config.get_font(14, "bold"),
+                width=24,
+                height=24,
+                corner_radius=12,
+                fg_color="#FFEEEE",    # 浅红背景，极其显眼
+                hover_color="#FF4D4F", 
+                text_color="#FF4D4F",  # 红色大叉
+                font=config.get_font(16, "bold"),
                 command=lambda t=tool_info, c=category_id: self._on_delete_tool_click(t, c)
             )
-            btn_delete.place(relx=1.0, rely=0.0, anchor="ne", x=-4, y=4)
+            # 贴边定位，并使用 lift() 保证绝不被遮挡
+            btn_delete.place(relx=1.0, rely=0.0, anchor="ne", x=-6, y=6)
+            btn_delete.lift()
 
         top_frame = ctk.CTkFrame(card, fg_color="transparent")
         top_frame.pack(fill="x", padx=15, pady=(15, 5))
 
-        # ----------------------------------------------------
-        # 🎯 图标加载逻辑
-        # ----------------------------------------------------
+        # 图标逻辑
         raw_icon = tool_info.get("icon", "")
         clean_icon = raw_icon.replace("\\", "/").strip("/")
         icon_path = os.path.join(config.BASE_DIR, clean_icon)
@@ -108,23 +156,16 @@ class ToolGridView(ctk.CTkScrollableFrame):
         if os.path.exists(icon_path):
             try:
                 pil_image = Image.open(icon_path)
-                ctk_img = ctk.CTkImage(
-                    light_image=pil_image, 
-                    dark_image=pil_image, 
-                    size=(28, 28)
-                )
+                ctk_img = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(28, 28))
                 icon_lbl = ctk.CTkLabel(top_frame, image=ctk_img, text="")
             except Exception as e:
-                print(f"⚠️ 图片加载异常: {e}")
                 icon_lbl = ctk.CTkLabel(top_frame, text="📄", font=config.get_font(22))
         else:
             icon_lbl = ctk.CTkLabel(top_frame, text="📄", font=config.get_font(22))
 
         icon_lbl.pack(side="left", padx=(0, 8))
 
-        # ----------------------------------------------------
-        # 标题、描述、按钮逻辑
-        # ----------------------------------------------------
+        # 标题与描述
         title_lbl = ctk.CTkLabel(
             top_frame,
             text=tool_info.get("name", "未知应用"),
@@ -156,9 +197,10 @@ class ToolGridView(ctk.CTkScrollableFrame):
         )
         btn_open.pack(anchor="e", padx=15, pady=(5, 10))
 
+        return card
+
     def _launch_tool_dialog(self, tool_info):
         """处理点击打开工具的逻辑"""
-        # 防抖锁
         if getattr(self, "_is_opening_lock", False):
             return
         self._is_opening_lock = True
@@ -172,13 +214,11 @@ class ToolGridView(ctk.CTkScrollableFrame):
             if target_url and target_url.startswith("http"):
                 webbrowser.open(target_url)
             else:
-                messagebox.showerror("打开失败", "该工具被标记为网页链接，但在数据库中未找到有效的 http 网址！\\n请检查服务端数据。")
+                messagebox.showerror("打开失败", "该工具被标记为网页链接，但在数据库中未找到有效的 http 网址！")
             return
 
-        # 本地工具弹窗流程
         tool_id = str(tool_info.get("id") or tool_info.get("tool_id") or tool_info.get("name"))
         
-        # 防止重复弹窗
         if tool_id in self.dialogs and self.dialogs[tool_id].winfo_exists():
             self.dialogs[tool_id].lift()
             self.dialogs[tool_id].focus_force()
@@ -209,7 +249,6 @@ class ToolGridView(ctk.CTkScrollableFrame):
     # 🚀 删除操作（下架 / 彻底删除）底层逻辑
     # ==========================================
     def _on_delete_tool_click(self, tool_info, category_id):
-        """点击删除按钮，弹出二次确认窗"""
         tool_name = tool_info.get("name", "未命名软件")
         tool_id = tool_info.get("tool_id") or tool_info.get("id")
 
@@ -251,20 +290,16 @@ class ToolGridView(ctk.CTkScrollableFrame):
         btn_hard.pack(side="right", padx=10, expand=True)
 
     def _execute_delete_action(self, dialog, tool_id, category_id, tool_name, delete_mode):
-        """执行具体的删除逻辑（网络优先，绝不报 404）"""
         dialog.destroy()  
 
-        # 1. 动态获取 API 根地址
         api_base = getattr(config, "SERVER_URL", None) or getattr(config, "API_URL", None) or getattr(config, "HOST", "http://127.0.0.1:4566")
         api_base = str(api_base).rstrip("/")
         
-        # 2. 安全的 URL 编码，防止空格和斜杠把路由搞崩
         safe_tool_id = urllib.parse.quote(str(tool_id), safe="")
         safe_cat_id = urllib.parse.quote(str(category_id), safe="")
 
         api_url = ""
         try:
-            # 3. 先向服务端发起删除请求！
             if delete_mode == "soft":
                 api_url = f"{api_base}/api/tools/{safe_cat_id}/{safe_tool_id}/delete"
             else:
@@ -272,12 +307,10 @@ class ToolGridView(ctk.CTkScrollableFrame):
                 
             resp = requests.post(api_url, timeout=8)
             
-            # 如果不是 200，说明服务端出了问题，绝对不能继续！
             if resp.status_code != 200:
                 messagebox.showerror("服务器拒绝", f"服务端未能处理该请求，本地取消删除！\n\n状态码: {resp.status_code}\n报错信息: {resp.text}")
                 return
 
-            # 4. 服务端删成功了，现在修改客户端本地数据库
             local_db_path = os.path.join(config.BASE_DIR, "data", "appdata.json")
             if os.path.exists(local_db_path):
                 with open(local_db_path, "r", encoding="utf-8") as f:
@@ -300,14 +333,12 @@ class ToolGridView(ctk.CTkScrollableFrame):
                 with open(local_db_path, "w", encoding="utf-8") as f:
                     json.dump(db_data, f, ensure_ascii=False, indent=2)
 
-            # 5. 弹窗提示并刷新界面
             action_name = "软删除下架" if delete_mode == "soft" else "强制彻底删除"
             messagebox.showinfo("操作成功", f"工具【{tool_name}】已成功{action_name}！")
             
-            # 刷新网格，卡片会立刻消失
             self.render_category(category_id)
 
         except requests.exceptions.RequestException as e:
-            messagebox.showerror("网络连接失败", f"无法连通服务器，请检查服务端是否运行！\n\n请求的地址: {api_url}\n错误: {e}")
+            messagebox.showerror("网络连接失败", f"无法连通服务器，请检查服务端是否运行！\n\n错误: {e}")
         except Exception as e:
             messagebox.showerror("本地异常", f"执行过程发生错误: {str(e)}")

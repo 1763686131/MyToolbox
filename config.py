@@ -1,3 +1,4 @@
+import ctypes
 import json
 import os
 import sys
@@ -15,6 +16,9 @@ CURRENT_USER = None
 
 # API 接口地址 (根据你的真实 NAS IP / Docker 端口修改)
 API_BASE_URL = "http://127.0.0.1:4566"
+
+
+HIDE_GLOBAL_SCROLLBARS = True # True 表示隐藏所有网格的侧边滚动条，False 表示显示
 
 # --- 智能获取项目根目录 (兼容 PyInstaller 打包) ---
 if getattr(sys, "frozen", False):
@@ -105,8 +109,35 @@ def get_api_download_url(exe_name, sub_dir="others"):
 # 4. 字体与 UI 统一配置
 # ==========================================
 FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
-FONT_FAMILY = "AlimamaFangYuanTi VF SemiBold"
-FONT_PATH = os.path.join(BASE_DIR, "assets", "font", FONT_FILE_NAME)
+FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"
+FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", FONT_FILE_NAME)
+
+# ==========================================
+# 🚀 核心魔法：将字体动态注入内存（无需系统安装）
+# ==========================================
+def _load_custom_font_to_memory(font_path):
+    if not os.path.exists(font_path):
+        print(f"⚠️ 找不到字体文件: {font_path}")
+        return
+
+    try:
+        # 方案 A：使用 CustomTkinter 自带的跨平台字体加载器（最稳定）
+        import customtkinter as ctk
+        ctk.FontManager.load_font(font_path)
+    except Exception as e:
+        print(f"CTK字体加载跳过: {e}")
+        # 方案 B：Windows 底层 API 强制注入（纯 Tkinter/容错兜底）
+        if sys.platform.startswith('win'):
+            try:
+                FR_PRIVATE = 0x10  # 仅当前进程可见
+                FR_NOT_ENUM = 0x20 # 不被其他程序枚举到
+                # 调用 Windows GDI32 接口动态加载字体
+                ctypes.windll.gdi32.AddFontResourceExW(font_path, FR_PRIVATE | FR_NOT_ENUM, 0)
+            except Exception as win_e:
+                print(f"⚠️ Windows 内存字体加载失败: {win_e}")
+
+# 立刻执行注入！
+_load_custom_font_to_memory(FONT_PATH)
 
 
 def get_font(size=12, weight="normal"):
