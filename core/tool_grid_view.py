@@ -133,6 +133,63 @@ class ToolGridView(ctk.CTkScrollableFrame):
         btn_open.pack(anchor="e", padx=15, pady=(5, 10))
 
     def _launch_tool_dialog(self, tool_info):
+        # 🚀 核心修复：防抖锁（加入 getattr 完美容错，没上户口也不会报错了！）
+        if getattr(self, "_is_opening_lock", False):
+            return
+        self._is_opening_lock = True
+        self.after(400, lambda: setattr(self, "_is_opening_lock", False))
+
+        # ==========================================
+        # 🌟 创新点：前端通过 Type 精准拦截分类
+        # ==========================================
+        # 兼容读取后端传过来的 type 或 tool_type 字段
+        tool_type = str(tool_info.get("type", "")) + str(tool_info.get("tool_type", ""))
+        
+        # 1. 只要类型里包含“网页”或“html”，或者存在“url”字段，绝对判定为网页工具！
+        if "网页" in tool_type or "html" in tool_type.lower() or "url" in tool_info:
+            # 智能提取网址 (兼容后端可能存错字段的情况)
+            target_url = tool_info.get("url") or tool_info.get("path") or tool_info.get("exe_name")
+            
+            if target_url and target_url.startswith("http"):
+                webbrowser.open(target_url)  # 👉 直接跳转浏览器
+            else:
+                import tkinter.messagebox as messagebox
+                messagebox.showerror("打开失败", "该工具被标记为网页链接，但在数据库中未找到有效的 http 网址！\n请检查服务端数据。")
+            return
+
+        # ==========================================
+        # 2. 如果不是网页，走常规的 EXE/PY 本地弹窗流程
+        # ==========================================
+        tool_id = tool_info.get("id") or tool_info.get("tool_id") or tool_info.get("name")
+        
+        # 已存在窗口判断
+        if tool_id in self.dialogs and self.dialogs[tool_id].winfo_exists():
+            self.dialogs[tool_id].lift()
+            self.dialogs[tool_id].focus_force()
+            return
+
+        try:
+            # 兼容新老数据的万能兜底
+            module_name = tool_info.get("dialog_module", "views.system.cloud_tool_dialog")
+            class_name = tool_info.get("dialog_class", "CloudToolDialog")
+            
+            module = importlib.import_module(module_name)
+            dialog_cls = getattr(module, class_name)
+            
+            # 安全判断，确保有 exe_name 才传参数
+            if "exe_name" in tool_info and tool_info["exe_name"]:
+                dialog = dialog_cls(
+                    self.winfo_toplevel(), 
+                    display_name=tool_info["name"], 
+                    exe_name=tool_info["exe_name"],
+                    sub_dir=tool_info.get("sub_dir", "others")
+                )
+            else:
+                dialog = dialog_cls(self.winfo_toplevel())
+                
+            self.dialogs[tool_id] = dialog
+        except Exception as e:
+            print(f"❌ 启动工具弹窗失败: {e}")
         if "url" in tool_info:
             webbrowser.open(tool_info["url"])
             return
