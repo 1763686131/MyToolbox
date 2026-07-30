@@ -33,7 +33,7 @@ class ProfileView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(15, 10))
         ctk.CTkLabel(
-            header_frame, text="👤 个人中心 & 管理后台",
+            header_frame, text="👤 个人中心",
             font=config.get_font(size=20, weight="bold"), text_color=("#1F2937", "#F3F4F6")
         ).pack(anchor="w")
 
@@ -50,8 +50,8 @@ class ProfileView(ctk.CTkFrame):
     def _build_guest_card(self):
         card = ctk.CTkFrame(self, fg_color=("#FFFFFF", "#2B2B2B"), corner_radius=12, border_width=1, border_color=("#E5E7EB", "#374151"))
         card.pack(fill="x", padx=20, pady=10)
-        ctk.CTkLabel(card, text="您当前是游客身份，部分高级功能已隐藏", font=config.get_font(size=14), text_color="gray").pack(pady=(25, 15))
-        ctk.CTkButton(card, text="🔑 立即登录系统", font=config.get_font(size=14, weight="bold"), height=36, command=self._show_login_dialog).pack(pady=(0, 25))
+        ctk.CTkLabel(card, text="您当前是游客身份，基本功能可用", font=config.get_font(size=14), text_color="gray").pack(pady=(25, 15))
+        ctk.CTkButton(card, text="立即登录系统", font=config.get_font(size=14, weight="bold"), height=36, command=self._show_login_dialog).pack(pady=(0, 25))
 
     def _build_user_card(self):
         info_card = ctk.CTkFrame(self, fg_color=("#FFFFFF", "#2B2B2B"), corner_radius=12, border_width=1, border_color=("#E5E7EB", "#374151"))
