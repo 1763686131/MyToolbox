@@ -1,34 +1,83 @@
 import importlib
 import os
+import sys
 import json
 import requests
 import urllib.parse
 import webbrowser
-import sys
 import config
 import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image
 
 class ToolGridView(ctk.CTkScrollableFrame):
-    """二级：工具网格容器 (展示工具卡片 - 动态响应式版)"""
+    """二级：工具网格容器 (展示工具卡片 - 响应式 + 防遮挡完美版)"""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.dialogs = {}
-
+        
+        # 隐藏自带的物理滚动条
         if getattr(config, "HIDE_GLOBAL_SCROLLBARS", False):
             self._scrollbar.grid_forget()
-        # 🚀 响应式布局：保存当前卡片对象，监听窗口尺寸变化
+            
+        # 响应式布局：保存当前卡片对象，监听窗口尺寸变化
         self.current_cards = []
         self.current_max_cols = 0
         self._resize_after_id = None
         
-        # 绑定窗口大小改变事件
         self.bind("<Configure>", self._on_resize)
 
+    # ==========================================
+    # 🌟 滚轮事件强穿透引擎
+    # ==========================================
+    def _force_scroll_binding(self, widget):
+        """递归遍历所有子控件，强制绑定鼠标滚轮事件到主 Canvas，并自动刷新画布大小"""
+        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        widget.bind("<Button-4>", self._on_mousewheel, add="+")  
+        widget.bind("<Button-5>", self._on_mousewheel, add="+")  
+
+        # 💡 核心修复 2：监听任何内部组件的大小变化，一旦变大立刻更新滚动范围！
+        # 这样登录后底下显示的新内容，瞬间就能被滚动条感知到！
+        widget.bind("<Configure>", lambda e: self._update_scroll_region(), add="+")
+        
+        for child in widget.winfo_children():
+            self._force_scroll_binding(child)
+
+
+    def _update_scroll_region(self):
+        """强制更新底层 Canvas 的滚动边界，防止出现滑不动的情况"""
+        if getattr(self, "_parent_canvas", None) and self._parent_canvas.winfo_exists():
+            # 获取内部包裹的 Frame 的实际大小
+            bbox = self._parent_canvas.bbox("all")
+            if bbox:
+                # 强制重新设置画布的滚动范围
+                self._parent_canvas.configure(scrollregion=bbox)
+
+    def _on_mousewheel(self, event):
+        """跨平台鼠标滚轮处理器，增加滑动速度"""
+        if getattr(self, "_parent_canvas", None) is None or not self._parent_canvas.winfo_exists():
+            return
+
+        # 💡 核心修复 1：滚动加速器 (修改倍率，让滑动更顺畅)
+        scroll_speed = 3  # 你可以修改这个数字，数字越大滑动越快
+
+        if sys.platform.startswith("win"):
+            # Windows: event.delta 通常是 120 或 -120
+            direction = int(-1 * (event.delta / 120))
+            self._parent_canvas.yview_scroll(direction * scroll_speed, "units")
+        elif sys.platform == "darwin":
+            # macOS: event.delta 就是滑动的像素
+            self._parent_canvas.yview_scroll(int(-1 * event.delta), "units")
+        else:
+            # Linux X11
+            if event.num == 4:
+                self._parent_canvas.yview_scroll(-1 * scroll_speed, "units")
+            elif event.num == 5:
+                self._parent_canvas.yview_scroll(1 * scroll_speed, "units")
+
+                
     def _is_admin(self) -> bool:
-        """判断当前登录的用户是否为管理员"""
         user_info = getattr(config, "CURRENT_USER", None) or getattr(config, "USER_INFO", None)
         if not user_info or not isinstance(user_info, dict):
             return False
@@ -37,54 +86,48 @@ class ToolGridView(ctk.CTkScrollableFrame):
         username = str(user_info.get("username", "")).lower()
         return role == "admin" or is_admin_flag is True or username == "admin"
 
-    # ==========================================
-    # 🚀 响应式布局引擎 (核心修改)
-    # ==========================================
     def _on_resize(self, event):
-        """窗口改变大小时触发，加入防抖(Debounce)防止卡顿"""
         if self._resize_after_id:
             self.after_cancel(self._resize_after_id)
         self._resize_after_id = self.after(100, self._layout_cards)
 
     def _layout_cards(self):
-        """根据当前容器真实宽度，自动计算一排能放几个卡片，并重新洗牌"""
         if not self.current_cards:
             return
 
-        # 获取容器当前宽度 (预留出滚动条的空间)
         available_width = self.winfo_width()
         if available_width < 100:
-            available_width = 1000  # 还没渲染出来时的兜底宽度
+            available_width = 1000
 
-        # 卡片宽度 300 + 左右间距 30 = 330
         max_cols = max(1, (available_width - 20) // 330)
 
-        # 如果列数没变，就无需重新渲染，节省性能
         if getattr(self, "current_max_cols", 0) == max_cols:
             return
         
         self.current_max_cols = max_cols
 
-        # 重新为所有卡片分配座位 (Row, Column)
         for index, card in enumerate(self.current_cards):
             row = index // max_cols
             col = index % max_cols
             card.grid(row=row, column=col, padx=15, pady=15)
 
     def render_category(self, cat_id):
-        # 清空现有子控件
         for widget in self.winfo_children():
             widget.destroy()
 
         self.current_cards = []
-        self.current_max_cols = 0  # 强制刷新布局
+        self.current_max_cols = 0 
 
         # 🔥 个人中心单独展示
         if cat_id == "user_center":
             try:
                 from views.profile.profile_view import ProfileView
                 profile_page = ProfileView(self)
-                profile_page.pack(fill="both", expand=True)
+                # 🚀 修复点 1：去掉 expand=True，允许个人中心根据实际内容撑开高度！
+                profile_page.pack(fill="x", padx=10, pady=10)
+                
+                # 为个人中心注入滚轮穿透事件
+                self._force_scroll_binding(profile_page)
             except Exception as e:
                 error_lbl = ctk.CTkLabel(
                     self, text=f"❌ 加载个人中心失败:\n{e}", text_color="red", font=config.get_font(size=14)
@@ -92,7 +135,6 @@ class ToolGridView(ctk.CTkScrollableFrame):
                 error_lbl.pack(pady=50)
             return
 
-        # 查找对应分类
         target_cat = next((c for c in config.NAV_MENU if c["id"] == cat_id), None)
         if not target_cat or not target_cat.get("tools"):
             empty_lbl = ctk.CTkLabel(
@@ -101,22 +143,19 @@ class ToolGridView(ctk.CTkScrollableFrame):
             empty_lbl.pack(pady=100)
             return
 
-        # 创建一个主容器来承载网格
         self.grid_container = ctk.CTkFrame(self, fg_color="transparent")
         self.grid_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # 过滤可视工具并生成卡片
         visible_tools = [t for t in target_cat["tools"] if t.get("status", 1) != 0]
         
         for tool in visible_tools:
             card = self._create_tool_card(self.grid_container, tool, cat_id)
             self.current_cards.append(card)
 
-        # 刚生成完卡片，立刻进行一次完美的排版
         self._layout_cards()
+        self._force_scroll_binding(self.grid_container)
 
     def _create_tool_card(self, parent_container, tool_info, category_id=None):
-        """创建漂亮的独立工具卡片"""
         card = ctk.CTkFrame(
             parent_container,
             fg_color="#FFFFFF",
@@ -127,28 +166,10 @@ class ToolGridView(ctk.CTkScrollableFrame):
         card.grid_propagate(False)
         card.pack_propagate(False)
 
-        # 💡 管理员专属：强化的醒目红色关闭按钮，且强制置顶 (Lift)
-        if self._is_admin():
-            btn_delete = ctk.CTkButton(
-                card,
-                text="×",
-                width=24,
-                height=24,
-                corner_radius=12,
-                fg_color="#FFEEEE",    # 浅红背景，极其显眼
-                hover_color="#FF4D4F", 
-                text_color="#FF4D4F",  # 红色大叉
-                font=config.get_font(16, "bold"),
-                command=lambda t=tool_info, c=category_id: self._on_delete_tool_click(t, c)
-            )
-            # 贴边定位，并使用 lift() 保证绝不被遮挡
-            btn_delete.place(relx=1.0, rely=0.0, anchor="ne", x=-6, y=6)
-            btn_delete.lift()
-
         top_frame = ctk.CTkFrame(card, fg_color="transparent")
         top_frame.pack(fill="x", padx=15, pady=(15, 5))
 
-        # 图标逻辑
+        # 🎯 图标加载 (靠左)
         raw_icon = tool_info.get("icon", "")
         clean_icon = raw_icon.replace("\\", "/").strip("/")
         icon_path = os.path.join(config.BASE_DIR, clean_icon)
@@ -162,10 +183,10 @@ class ToolGridView(ctk.CTkScrollableFrame):
                 icon_lbl = ctk.CTkLabel(top_frame, text="📄", font=config.get_font(22))
         else:
             icon_lbl = ctk.CTkLabel(top_frame, text="📄", font=config.get_font(22))
-
+            
         icon_lbl.pack(side="left", padx=(0, 8))
 
-        # 标题与描述
+        # 🎯 标题加载 (居中偏左)
         title_lbl = ctk.CTkLabel(
             top_frame,
             text=tool_info.get("name", "未知应用"),
@@ -175,6 +196,24 @@ class ToolGridView(ctk.CTkScrollableFrame):
         )
         title_lbl.pack(side="left", fill="x", expand=True)
 
+        # 🚀 修复点 2：将删除按钮直接加入布局队列，强制靠右，绝不重叠！
+        if self._is_admin():
+            btn_delete = ctk.CTkButton(
+                top_frame,
+                text="×",
+                width=24,
+                height=24,
+                corner_radius=12,
+                fg_color="#FFEEEE",    
+                hover_color="#FF4D4F", 
+                text_color="#FF4D4F",  
+                font=config.get_font(16, "bold"),
+                command=lambda t=tool_info, c=category_id: self._on_delete_tool_click(t, c)
+            )
+            # pack(side="right") 会让它安全地躲在标题栏的最右侧
+            btn_delete.pack(side="right", padx=(5, 0))
+
+        # 描述与打开按钮
         desc_lbl = ctk.CTkLabel(
             card,
             text=tool_info.get("desc", ""),
@@ -199,8 +238,10 @@ class ToolGridView(ctk.CTkScrollableFrame):
 
         return card
 
+    # ==========================================
+    # 行为交互逻辑 (打开与删除)
+    # ==========================================
     def _launch_tool_dialog(self, tool_info):
-        """处理点击打开工具的逻辑"""
         if getattr(self, "_is_opening_lock", False):
             return
         self._is_opening_lock = True
@@ -208,7 +249,6 @@ class ToolGridView(ctk.CTkScrollableFrame):
 
         tool_type = str(tool_info.get("type", "")) + str(tool_info.get("tool_type", ""))
         
-        # 网页判断
         if "网页" in tool_type or "html" in tool_type.lower() or "url" in tool_info:
             target_url = tool_info.get("url") or tool_info.get("path") or tool_info.get("exe_name")
             if target_url and target_url.startswith("http"):
@@ -245,9 +285,6 @@ class ToolGridView(ctk.CTkScrollableFrame):
         except Exception as e:
             print(f"❌ 启动工具弹窗失败: {e}")
 
-    # ==========================================
-    # 🚀 删除操作（下架 / 彻底删除）底层逻辑
-    # ==========================================
     def _on_delete_tool_click(self, tool_info, category_id):
         tool_name = tool_info.get("name", "未命名软件")
         tool_id = tool_info.get("tool_id") or tool_info.get("id")
