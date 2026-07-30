@@ -105,7 +105,7 @@ def get_api_download_url(exe_name, sub_dir="others"):
 # 4. 字体与 UI 统一配置
 # ==========================================
 FONT_FILE_NAME = "AlimamaFangYuanTiVF-Thin-2.ttf"
-FONT_FAMILY = "阿里妈妈方圆体 VF SemiBold"
+FONT_FAMILY = "AlimamaFangYuanTi VF SemiBold"
 FONT_PATH = os.path.join(BASE_DIR, "assets", "font", FONT_FILE_NAME)
 
 
