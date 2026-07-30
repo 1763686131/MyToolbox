@@ -14,34 +14,33 @@ class CloudToolDialog(ctk.CTkToplevel):
     def __init__(self, master, display_name, exe_name, sub_dir="others", *args, **kwargs):
         super().__init__(master, *args, **kwargs)
 
-        # 1. 动态接收传进来的参数
-        self.display_name = display_name  # 例如："360驱动大师网卡版"
-        self.tool_name = exe_name         # 例如："360驱动大师网卡版2.0.0.2040.exe"
-        self.sub_dir = sub_dir            # 👉 新增：接收所属分类文件夹（默认存入 others）
+        self.display_name = display_name
+        self.tool_name = exe_name 
+        self.sub_dir = sub_dir    
         
         self.title(f"🚀 启动 {self.display_name}")
-        self.geometry("380x240")
+        
+        # 🌟 修复 3：让下载弹窗相对于主窗口绝对居中
+        win_w, win_h = 380, 240
+        master.update_idletasks() # 确保获取到最新的主窗口数据
+        x = master.winfo_rootx() + (master.winfo_width() // 2) - (win_w // 2)
+        y = master.winfo_rooty() + (master.winfo_height() // 2) - (win_h // 2)
+        self.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        
         self.resizable(False, False)
-
         self.lift()
         self.focus_force()
         self.grab_set()
 
-        # 2. 动态拼接本地保存路径与子文件夹（替代原来的单层寻址）
         try:
-            # 优先调用 config 里配置好的根目录
             base_dir = config.BASE_DIR
         except AttributeError:
-            # 兼容处理：如果没有 BASE_DIR，则使用当前主程序的运行目录
             base_dir = os.getcwd()
             
-        # 拼接出含有子分类的文件夹路径，例如：./tools/system_files/
         local_folder = os.path.join(base_dir, "tools", self.sub_dir)
-        os.makedirs(local_folder, exist_ok=True)  # 💡 核心防错：如果本地没有这个文件夹，自动帮你建好
+        os.makedirs(local_folder, exist_ok=True) 
         
-        # 最终的 .exe 绝对路径
         self.exe_path = os.path.join(local_folder, self.tool_name)
-        
         self.is_downloading = False
 
         self._build_ui()
@@ -101,13 +100,8 @@ class CloudToolDialog(ctk.CTkToplevel):
         threading.Thread(target=self._download_task, daemon=True).start()
 
     def _download_task(self):
-        # 🌟 重点在这里：拼接带有 sub_dir 分类的动态路由下载链接
-        original_url = config.get_api_download_url(self.tool_name)
-        # 将 "/api/tools/软件.exe" 智能替换为 "/api/tools/你的分类/软件.exe"
-        download_url = original_url.replace(
-            f"/api/tools/{self.tool_name}", 
-            f"/api/tools/{self.sub_dir}/{self.tool_name}"
-        )
+        # 🌟 修复 4：直接把 sub_dir 传给生成函数，彻底干掉错误的 replace 字符串替换逻辑
+        download_url = config.get_api_download_url(self.tool_name, self.sub_dir)
         
         os.makedirs(os.path.dirname(self.exe_path), exist_ok=True)
         try:

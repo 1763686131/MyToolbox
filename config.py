@@ -10,6 +10,9 @@ APP_TITLE = "千城工具箱"  #名字
 WINDOW_SIZE = "1050x650" #屏幕尺寸
 BG_COLOR = "#EDF5FC" #背景颜色
 
+# 用户登录状态
+CURRENT_USER = None
+
 # API 接口地址 (根据你的真实 NAS IP / Docker 端口修改)
 API_BASE_URL = "http://127.0.0.1:4566"
 

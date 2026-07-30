@@ -134,6 +134,40 @@ class ToolGridView(ctk.CTkScrollableFrame):
 
     def _launch_tool_dialog(self, tool_info):
         if "url" in tool_info:
+            webbrowser.open(tool_info["url"])
+            return
+            
+        tool_id = tool_info.get("id") or tool_info.get("tool_id")
+        
+        # 🌟 修复 4：防止双击或多次点击导致弹出多个窗口
+        if tool_id in self.dialogs and self.dialogs[tool_id].winfo_exists():
+            self.dialogs[tool_id].lift()
+            self.dialogs[tool_id].focus_force()
+            return
+
+        try:
+            # 🌟 修复 4：新上传的工具如果没有配置弹窗模块，自动给它分配万能云端弹窗，防止崩溃！
+            module_name = tool_info.get("dialog_module", "views.system.cloud_tool_dialog")
+            class_name = tool_info.get("dialog_class", "CloudToolDialog")
+            
+            module = importlib.import_module(module_name)
+            dialog_cls = getattr(module, class_name)
+            
+            # 🌟 修复 3：将 self 换成 self.winfo_toplevel()，传主窗口对象给弹窗以便它居中计算
+            if "exe_name" in tool_info:
+                dialog = dialog_cls(
+                    self.winfo_toplevel(), 
+                    display_name=tool_info["name"], 
+                    exe_name=tool_info["exe_name"],
+                    sub_dir=tool_info.get("sub_dir", "others")
+                )
+            else:
+                dialog = dialog_cls(self.winfo_toplevel())
+                
+            self.dialogs[tool_id] = dialog
+        except Exception as e:
+            print(f"❌ 启动工具弹窗失败: {e}")
+        if "url" in tool_info:
             webbrowser.open(tool_info["url"])    #如果是链接，直接调动浏览器
             return
             

@@ -8,24 +8,26 @@ import config
 
 
 class ProfileView(ctk.CTkFrame):
-    """个人中心与管理员后台视图（支持游客鉴权与手动云端数据比对）"""
+    """个人中心与管理员后台视图（支持游客鉴权、全局状态锁定与图标静默同步）"""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
 
-        # 核心鉴权状态：None 表示游客，登录后存储用户字典数据
         self.current_user = None
-        self.cloud_text = ""  # 用于存放从云端拉取下来的新版 appdata.json 字符
+        self.cloud_text = ""  
+        self.cloud_data_dict = {} # 用于存放解析后的云端字典，方便提取图标路径
+        
         self.upload_file_path = None
+        self.upload_icon_path = None # 新增：存放准备上传的图标路径
 
         self._build_ui()
 
     def _build_ui(self):
-        """动态构建整体界面（登录前后会重新调用渲染）"""
+        self.current_user = getattr(config, "CURRENT_USER", None)
+
         for widget in self.winfo_children():
             widget.destroy()
-
-        # 顶部标题栏
+            
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=20, pady=(15, 10))
         ctk.CTkLabel(
@@ -33,41 +35,28 @@ class ProfileView(ctk.CTkFrame):
             font=config.get_font(size=20, weight="bold"), text_color=("#1F2937", "#F3F4F6")
         ).pack(anchor="w")
 
-        # ================== 模块 1：用户身份区 ==================
         if self.current_user is None:
             self._build_guest_card()
         else:
             self._build_user_card()
 
-        # ================== 模块 2：云端数据同步区 (所有人开放) ==================
         self._build_sync_card()
 
-        # ================== 模块 3：后台上传区 (仅限管理员可见) ==================
         if self.current_user and self.current_user.get("role") == "admin":
             self._build_admin_card()
 
-    # ------------------ UI 绘制子方法 ------------------
-
     def _build_guest_card(self):
-        """游客展示卡片：只有登录按钮"""
         card = ctk.CTkFrame(self, fg_color=("#FFFFFF", "#2B2B2B"), corner_radius=12, border_width=1, border_color=("#E5E7EB", "#374151"))
         card.pack(fill="x", padx=20, pady=10)
-        
         ctk.CTkLabel(card, text="您当前是游客身份，部分高级功能已隐藏", font=config.get_font(size=14), text_color="gray").pack(pady=(25, 15))
-        ctk.CTkButton(
-            card, text="🔑 立即登录系统", font=config.get_font(size=14, weight="bold"), height=36,
-            command=self._show_login_dialog
-        ).pack(pady=(0, 25))
+        ctk.CTkButton(card, text="🔑 立即登录系统", font=config.get_font(size=14, weight="bold"), height=36, command=self._show_login_dialog).pack(pady=(0, 25))
 
     def _build_user_card(self):
-        """用户展示卡片：登录后显示资料"""
         info_card = ctk.CTkFrame(self, fg_color=("#FFFFFF", "#2B2B2B"), corner_radius=12, border_width=1, border_color=("#E5E7EB", "#374151"))
         info_card.pack(fill="x", padx=20, pady=10)
-
         info_inner = ctk.CTkFrame(info_card, fg_color="transparent")
         info_inner.pack(fill="x", padx=20, pady=15)
         
-        # 头像
         avatar = self.current_user.get("profile", {}).get("avatar", "🧑‍💻")
         ctk.CTkLabel(info_inner, text=avatar, font=ctk.CTkFont(size=42)).pack(side="left", padx=(0, 15))
 
@@ -82,42 +71,37 @@ class ProfileView(ctk.CTkFrame):
         role_color = "#1677FF" if self.current_user.get("role") == "admin" else "gray"
         ctk.CTkLabel(user_text_box, text=role_badge_text, text_color=role_color, font=config.get_font(size=12)).pack(anchor="w", pady=(3, 0))
         
-        # 退出登录按钮
-        ctk.CTkButton(
-            info_inner, text="退出登录", width=70, fg_color="#F56C6C", hover_color="#E6A23C", 
-            font=config.get_font(size=12), command=self._logout
-        ).pack(side="right")
+        ctk.CTkButton(info_inner, text="退出登录", width=70, fg_color="#F56C6C", hover_color="#E6A23C", font=config.get_font(size=12), command=self._logout).pack(side="right")
 
     def _build_sync_card(self):
-        """云端数据同步模块：两步走（手动检测 -> 发现不同 -> 同步更新）"""
+        """云端数据同步模块（引入全局状态锁，防止来回切换重置）"""
         sync_card = ctk.CTkFrame(self, fg_color=("#FFFFFF", "#2B2B2B"), corner_radius=12, border_width=1, border_color=("#E5E7EB", "#374151"))
         sync_card.pack(fill="x", padx=20, pady=10)
 
         ctk.CTkLabel(sync_card, text="☁️ 云端工具库目录同步", font=config.get_font(size=15, weight="bold")).pack(anchor="w", padx=20, pady=(15, 5))
 
-        # 状态行框架
         self.sync_status_frame = ctk.CTkFrame(sync_card, fg_color="transparent")
         self.sync_status_frame.pack(fill="x", padx=20, pady=(5, 15))
 
-        # 初始标签
-        self.sync_status_label = ctk.CTkLabel(self.sync_status_frame, text="尚未检测，请点击比对云端数据", font=config.get_font(size=13), text_color="gray")
-        self.sync_status_label.pack(side="left")
+        # 读取全局变量，判断是否在当前运行周期内已经同步/检查过了
+        is_latest = getattr(config, "SYNC_IS_LATEST", False)
 
-        # 初始显示的检测按钮
-        self.btn_check_sync = ctk.CTkButton(
-            self.sync_status_frame, text="🔄 检测更新", font=config.get_font(size=13, weight="bold"), height=32,
-            command=self._start_check_sync
-        )
-        self.btn_check_sync.pack(side="right", padx=10)
+        if is_latest:
+            # 锁定状态：如果已经是最新的，直接展示绿色，不生成检测按钮
+            self.sync_status_label = ctk.CTkLabel(self.sync_status_frame, text="✅ 数据已经是最新了", font=config.get_font(size=13), text_color="#10B981")
+            self.sync_status_label.pack(side="left")
+        else:
+            # 初始状态：未检查
+            self.sync_status_label = ctk.CTkLabel(self.sync_status_frame, text="尚未检测，请点击比对云端数据", font=config.get_font(size=13), text_color="gray")
+            self.sync_status_label.pack(side="left")
 
-        # 发现不同后才显示的【立即同步】按钮 (默认先创建但不 pack 渲染)
-        self.btn_do_sync = ctk.CTkButton(
-            self.sync_status_frame, text="⬇️ 立即同步", font=config.get_font(size=13, weight="bold"), height=32,
-            fg_color="#1677FF", command=self._execute_sync
-        )
+            self.btn_check_sync = ctk.CTkButton(self.sync_status_frame, text="🔄 检测更新", font=config.get_font(size=13, weight="bold"), height=32, command=self._start_check_sync)
+            self.btn_check_sync.pack(side="right", padx=10)
+
+            self.btn_do_sync = ctk.CTkButton(self.sync_status_frame, text="⬇️ 立即同步", font=config.get_font(size=13, weight="bold"), height=32, fg_color="#1677FF", command=self._execute_sync)
 
     def _build_admin_card(self):
-        """管理员上传面板（动态读取 JSON 下拉框）"""
+        """管理员上传面板（新增图标上传入口）"""
         admin_card = ctk.CTkFrame(self, fg_color=("#FFFBEB", "#26231C"), corner_radius=12, border_width=1, border_color=("#FDE68A", "#544319"))
         admin_card.pack(fill="x", padx=20, pady=10)
 
@@ -149,9 +133,17 @@ class ProfileView(ctk.CTkFrame):
         self.entry_version = ctk.CTkEntry(form_grid, placeholder_text="例如：v1.0.0", font=config.get_font(size=12))
         self.entry_version.grid(row=4, column=1, sticky="ew", pady=6)
 
-        ctk.CTkLabel(form_grid, text="选择文件:", font=config.get_font(size=12, weight="bold")).grid(row=5, column=0, sticky="e", padx=(0, 10), pady=6)
+        # 💡 新增：图标选择区
+        ctk.CTkLabel(form_grid, text="工具图标:", font=config.get_font(size=12, weight="bold")).grid(row=5, column=0, sticky="e", padx=(0, 10), pady=6)
+        icon_box = ctk.CTkFrame(form_grid, fg_color="transparent")
+        icon_box.grid(row=5, column=1, sticky="ew", pady=6)
+        self.lbl_icon_path = ctk.CTkLabel(icon_box, text="未选择(默认文本图标)", text_color="gray", font=config.get_font(size=12))
+        self.lbl_icon_path.pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(icon_box, text="🖼️ 浏览图标", width=90, font=config.get_font(size=12), command=self._select_icon_file).pack(side="right")
+
+        ctk.CTkLabel(form_grid, text="工具文件:", font=config.get_font(size=12, weight="bold")).grid(row=6, column=0, sticky="e", padx=(0, 10), pady=6)
         file_box = ctk.CTkFrame(form_grid, fg_color="transparent")
-        file_box.grid(row=5, column=1, sticky="ew", pady=6)
+        file_box.grid(row=6, column=1, sticky="ew", pady=6)
         self.lbl_file_path = ctk.CTkLabel(file_box, text="未选择任何文件", text_color="gray", font=config.get_font(size=12))
         self.lbl_file_path.pack(side="left", fill="x", expand=True)
         ctk.CTkButton(file_box, text="📁 浏览文件", width=90, font=config.get_font(size=12), command=self._select_upload_file).pack(side="right")
@@ -163,21 +155,13 @@ class ProfileView(ctk.CTkFrame):
     # ------------------ 同步比对核心业务逻辑 ------------------
 
     def _start_check_sync(self):
-        """第一步：点击检测更新按钮"""
-        # 变成正在比对的文字
         self.sync_status_label.configure(text="正在与云端比对....", text_color=("#1F2937", "#F3F4F6"))
-        
-        # 隐藏检测按钮
         self.btn_check_sync.pack_forget() 
         self.btn_do_sync.pack_forget()    
-        
-        # 启动多线程进行网络请求，防止主界面卡住
         threading.Thread(target=self._task_check_sync, daemon=True).start()
 
     def _task_check_sync(self):
-        """后台拉取云端 appdata.json 并与本地进行【结构化】对比"""
         try:
-            # 1. 读取本地 JSON 数据为 Python 字典
             base_dir = getattr(config, "BASE_DIR", os.getcwd())
             local_path = os.path.join(base_dir, "data", "appdata.json")
             
@@ -187,74 +171,94 @@ class ProfileView(ctk.CTkFrame):
                     try:
                         local_data = json.load(f)
                     except json.JSONDecodeError:
-                        local_data = {}  # 如果本地文件损坏，当做空数据处理
+                        local_data = {} 
 
-            # 2. 从 NAS 请求最新 JSON 数据
-            sync_url = f"{config.API_BASE_URL}/api/appdata"
-            resp = requests.get(sync_url, timeout=5)
+            resp = requests.get(f"{config.API_BASE_URL}/api/appdata", timeout=5)
             resp.raise_for_status()
             
-            # 保存云端的原始纯文本，留给用户点击“立即同步”时写入本地用
             self.cloud_text = resp.text  
-            
             try:
-                cloud_data = resp.json() # 将云端下发的数据也转为 Python 字典
+                self.cloud_data_dict = resp.json() 
             except ValueError:
-                cloud_data = {}
+                self.cloud_data_dict = {}
 
-            # 3. 💡 核心修复：直接比对字典内容，彻底无视空格和换行符的干扰！
-            if local_data != cloud_data:
-                self.after(0, self._show_sync_needed) # 内容真的不一样
+            if local_data != self.cloud_data_dict:
+                self.after(0, self._show_sync_needed)
             else:
-                self.after(0, self._show_synced)      # 内容一模一样
+                self.after(0, self._show_synced)
                 
         except Exception as e:
             self.after(0, lambda: self.sync_status_label.configure(text=f"❌ 无法连接云端: {e}", text_color="red"))
-            self.after(0, lambda: self.btn_check_sync.pack(side="right", padx=10)) # 如果出错，把检测按钮重新显示出来
+            self.after(0, lambda: self.btn_check_sync.pack(side="right", padx=10))
+
     def _show_sync_needed(self):
-        """发现不一样：显示提示，并在右边出现【立即同步】按钮"""
         self.sync_status_label.configure(text="⚠️ 云端数据有新内容", text_color="#D97706")
         self.btn_do_sync.pack(side="right", padx=10) 
 
     def _show_synced(self):
-        """发现一模一样：显示绿色提示，隐藏所有按钮"""
+        """同步完毕后，打上全局标记，隐藏按钮"""
+        config.SYNC_IS_LATEST = True  # 💡 标记全局状态
         self.sync_status_label.configure(text="✅ 数据已经是最新了", text_color="#10B981")
-        self.btn_check_sync.pack_forget()
-        self.btn_do_sync.pack_forget()
+        if hasattr(self, 'btn_check_sync'): self.btn_check_sync.pack_forget()
+        if hasattr(self, 'btn_do_sync'): self.btn_do_sync.pack_forget()
 
     def _execute_sync(self):
-        """第二步：点击立即同步，覆盖本地文件"""
+        self.btn_do_sync.configure(state="disabled", text="正在同步...")
+        threading.Thread(target=self._task_execute_sync_and_icons, daemon=True).start()
+
+    def _task_execute_sync_and_icons(self):
+        """后台写入 JSON，并静默拉取所有缺失的图标"""
         try:
             base_dir = getattr(config, "BASE_DIR", os.getcwd())
             local_path = os.path.join(base_dir, "data", "appdata.json")
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            # 将刚才拉取的 self.cloud_text 直接覆写本地
             with open(local_path, "w", encoding="utf-8") as f:
                 f.write(self.cloud_text)
                 
-            # 调用热更新刷新左侧导航栏
-            if hasattr(config, "reload_appdata"):
-                config.reload_appdata()
+            # 💡 核心新增：遍历云端 JSON，静默比对并下载缺失图标
+            for category in self.cloud_data_dict.get("categories", []):
+                for tool in category.get("tools", []):
+                    icon_path = tool.get("icon", "")
+                    if icon_path and icon_path.endswith((".png", ".ico", ".jpg")):
+                        local_icon_path = os.path.join(base_dir, icon_path)
+                        # 如果本地没有这个图标，直接从服务端下载
+                        if not os.path.exists(local_icon_path):
+                            os.makedirs(os.path.dirname(local_icon_path), exist_ok=True)
+                            try:
+                                icon_resp = requests.get(f"{config.API_BASE_URL}/{icon_path}", timeout=10)
+                                if icon_resp.status_code == 200:
+                                    with open(local_icon_path, "wb") as f_icon:
+                                        f_icon.write(icon_resp.content)
+                            except Exception as icon_e:
+                                print(f"拉取图标失败 {icon_path}: {icon_e}")
                 
-            # 同步完成后，变为绿色最新状态
-            self._show_synced()
-            messagebox.showinfo("同步成功", "本地数据已成功更新覆盖！新上的工具已经就绪。")
+            # 同步完成后刷新前端状态
+            self.after(0, self._show_synced)
+            if hasattr(config, "reload_appdata"):
+                self.after(0, config.reload_appdata)
+            self.after(0, lambda: messagebox.showinfo("同步成功", "云端数据与图标已成功拉取覆盖！新工具已经就绪。"))
         except Exception as e:
-            messagebox.showerror("写入失败", f"无法更新本地数据文件: {e}")
-
+            self.after(0, lambda: messagebox.showerror("同步失败", f"发生错误: {e}"))
+            self.after(0, lambda: self.btn_do_sync.configure(state="normal", text="⬇️ 立即同步"))
 
     # ------------------ 登录鉴权与上传逻辑 ------------------
 
     def _show_login_dialog(self):
-        """弹出登录模态框"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("登录账户")
-        dialog.geometry("320x300")
+        win_w, win_h = 320, 300
+        master = self.winfo_toplevel()
+        master.update_idletasks() # 确保获取到最新的窗口尺寸
+        x = master.winfo_rootx() + (master.winfo_width() // 2) - (win_w // 2)
+        y = master.winfo_rooty() + (master.winfo_height() // 2) - (win_h // 2)
+        dialog.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        
         dialog.resizable(False, False)
-        dialog.transient(self.winfo_toplevel())
+        dialog.transient(master)
         dialog.grab_set()
 
+        # ... 这里保留你原本生成的账号密码输入框 UI 代码 ...
         ctk.CTkLabel(dialog, text="🔑 验证身份", font=config.get_font(size=20, weight="bold")).pack(pady=(20, 10))
         
         ctk.CTkLabel(dialog, text="账号 ID:", font=config.get_font(size=12)).pack(anchor="w", padx=40)
@@ -274,7 +278,8 @@ class ProfileView(ctk.CTkFrame):
             try:
                 resp = requests.post(f"{config.API_BASE_URL}/api/login", json={"user_id": uid, "password": pwd}, timeout=5)
                 if resp.status_code == 200 and resp.json().get("status") == "success":
-                    self.current_user = resp.json().get("data")
+                    # 🌟 修复 1：将登录信息写入全局状态
+                    config.CURRENT_USER = resp.json().get("data")
                     dialog.destroy()
                     self._build_ui()  
                 else:
@@ -285,8 +290,16 @@ class ProfileView(ctk.CTkFrame):
         ctk.CTkButton(dialog, text="立 即 登 录", height=38, font=config.get_font(size=14, weight="bold"), command=do_login).pack(fill="x", padx=40)
 
     def _logout(self):
-        self.current_user = None
+        # 🌟 修复 1：清理全局状态
+        config.CURRENT_USER = None
         self._build_ui()
+
+    def _select_icon_file(self):
+        """选择图片图标"""
+        file_path = filedialog.askopenfilename(title="选择工具图标", filetypes=[("图片文件", "*.png;*.jpg;*.ico")])
+        if file_path:
+            self.upload_icon_path = file_path
+            self.lbl_icon_path.configure(text=os.path.basename(file_path), text_color=("#1F2937", "#F3F4F6"))
 
     def _select_upload_file(self):
         file_path = filedialog.askopenfilename(title="选择要发布的软件包或 HTML")
@@ -299,7 +312,7 @@ class ProfileView(ctk.CTkFrame):
 
     def _start_upload_thread(self):
         if not self.upload_file_path:
-            messagebox.showwarning("提示", "请先选择要上传的文件！")
+            messagebox.showwarning("提示", "请先选择要上传的工具文件！")
             return
         if not self.entry_name.get() or not self.entry_desc.get():
             messagebox.showwarning("提示", "请填写完整的名称和简介！")
@@ -314,19 +327,36 @@ class ProfileView(ctk.CTkFrame):
         upload_url = f"{config.API_BASE_URL}/api/tools/{category_id}/upload"
 
         try:
-            with open(self.upload_file_path, "rb") as f:
-                files = {"file": (os.path.basename(self.upload_file_path), f)}
-                data = {
-                    "name": self.entry_name.get(),
-                    "desc": self.entry_desc.get(),
-                    "tool_type": self.var_type.get(),
-                    "version": self.entry_version.get(),
-                }
-                response = requests.post(upload_url, files=files, data=data, timeout=60)
-                response.raise_for_status()
+            # 💡 核心新增：组装双文件上传负载
+            files = {
+                "file": (os.path.basename(self.upload_file_path), open(self.upload_file_path, "rb"))
+            }
+            if self.upload_icon_path:
+                files["icon"] = (os.path.basename(self.upload_icon_path), open(self.upload_icon_path, "rb"))
 
-            self.after(0, lambda: messagebox.showinfo("成功", "🎉 软件已成功发布到 NAS！"))
+            data = {
+                "name": self.entry_name.get(),
+                "desc": self.entry_desc.get(),
+                "tool_type": self.var_type.get(),
+                "version": self.entry_version.get(),
+            }
+            
+            response = requests.post(upload_url, files=files, data=data, timeout=60)
+            response.raise_for_status()
+
+            self.after(0, lambda: messagebox.showinfo("成功", "🎉 软件与图标已成功发布并写入云端数据库！"))
+            self.after(0, self._reset_upload_form)
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("上传失败", f"无法连接到 NAS 服务端:\n{e}"))
+            self.after(0, lambda: messagebox.showerror("上传失败", f"发生错误:\n{e}"))
         finally:
             self.after(0, lambda: self.btn_upload.configure(state="normal", text="🚀 立即上传并发布到云端"))
+
+    def _reset_upload_form(self):
+        """重置上传表单"""
+        self.entry_name.delete(0, 'end')
+        self.entry_desc.delete(0, 'end')
+        self.entry_version.delete(0, 'end')
+        self.upload_file_path = None
+        self.upload_icon_path = None
+        self.lbl_file_path.configure(text="未选择任何文件", text_color="gray")
+        self.lbl_icon_path.configure(text="未选择(默认文本图标)", text_color="gray")
