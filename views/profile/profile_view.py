@@ -1,6 +1,7 @@
 import os
 import threading
 import json
+import time
 import requests
 import urllib.parse
 from tkinter import filedialog, messagebox
@@ -225,7 +226,11 @@ class ProfileView(ctk.CTkFrame):
             
             resp = requests.get(icon_url, timeout=5)
             if resp.status_code == 200 and len(resp.content) > 100:
-                temp_path = os.path.join(config.BASE_DIR, "data", f"icon_{domain}.ico")
+                
+                # 💡 核心修复：1. 改为存入 assets/icon 目录；2. 文件名加上时间戳防冲突
+                timestamp = int(time.time() * 1000)  # 获取毫秒级时间戳
+                temp_path = os.path.join(config.BASE_DIR, "assets", "icon", f"icon_{domain}_{timestamp}.ico")
+                
                 os.makedirs(os.path.dirname(temp_path), exist_ok=True)
                 with open(temp_path, "wb") as f:
                     f.write(resp.content)
@@ -235,10 +240,9 @@ class ProfileView(ctk.CTkFrame):
             else:
                 self.after(0, lambda: messagebox.showinfo("未找到图标", "该网站根目录没有公开标准图标，请您手动截图上传。"))
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("网络错误", f"无法连接该网站抓取图标: {e}"))
+            self.after(0, lambda err=str(e): messagebox.showerror("网络错误", f"无法连接该网站抓取图标: {err}"))
         finally:
             self.after(0, lambda: self.btn_fetch_icon.configure(state="normal", text="🔍 抓取图标"))
-
 
     # ------------------ 同步比对核心业务逻辑 ------------------
 
@@ -322,7 +326,7 @@ class ProfileView(ctk.CTkFrame):
                 self.after(0, config.reload_appdata)
             self.after(0, lambda: messagebox.showinfo("同步成功", "云端数据与图标已成功拉取覆盖！新工具已经就绪。"))
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("同步失败", f"发生错误: {e}"))
+            self.after(0, lambda err=str(e): messagebox.showerror("同步失败", f"发生错误: {err}"))
             self.after(0, lambda: self.btn_do_sync.configure(state="normal", text="⬇️ 立即同步"))
 
     # ------------------ 登录鉴权与上传逻辑 ------------------
