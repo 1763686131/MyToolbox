@@ -328,8 +328,8 @@ class ToolGridView(ctk.CTkScrollableFrame):
 
     def _execute_delete_action(self, dialog, tool_id, category_id, tool_name, delete_mode):
         dialog.destroy()  
-
-        api_base = getattr(config, "SERVER_URL", None) or getattr(config, "API_URL", None) or getattr(config, "HOST", "http://127.0.0.1:4566")
+        api_base = getattr(config, "API_BASE_URL", "http://www.qccool.top:4566")
+        # api_base = getattr(config, "SERVER_URL", None) or getattr(config, "API_URL", None) or getattr(config, "HOST", "API_BASE_URL")
         api_base = str(api_base).rstrip("/")
         
         safe_tool_id = urllib.parse.quote(str(tool_id), safe="")

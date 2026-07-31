@@ -15,7 +15,7 @@ BG_COLOR = "#EDF5FC" #背景颜色
 CURRENT_USER = None
 
 # API 接口地址 (根据你的真实 NAS IP / Docker 端口修改)
-API_BASE_URL = "http://127.0.0.1:4566"
+API_BASE_URL = "http://www.qccool.top:4566"
 
 
 HIDE_GLOBAL_SCROLLBARS = True # True 表示隐藏所有网格的侧边滚动条，False 表示显示
