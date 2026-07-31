@@ -11,7 +11,7 @@ import config
 
 
 class ProfileView(ctk.CTkFrame):
-    """个人中心与管理员后台视图（已加入：单选框表单、必填项校验、精准错误捕获）"""
+    """个人中心与管理员后台视图（已加入：单选框表单、必填项校验、精准错误捕获、支持 ZIP 压缩包上传）"""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
@@ -124,7 +124,8 @@ class ProfileView(ctk.CTkFrame):
         type_frame.grid(row=2, column=1, sticky="w", pady=6)
         
         self.var_type = ctk.StringVar(value="本地文件")
-        ctk.CTkRadioButton(type_frame, text="本地文件 (.exe / .py)", variable=self.var_type, value="本地文件", font=config.get_font(size=12), command=self._on_type_change).pack(side="left", padx=(0, 20))
+        # 🔥 修改提示文字，明确支持压缩包
+        ctk.CTkRadioButton(type_frame, text="本地文件/压缩包 (.zip/.exe)", variable=self.var_type, value="本地文件", font=config.get_font(size=12), command=self._on_type_change).pack(side="left", padx=(0, 20))
         ctk.CTkRadioButton(type_frame, text="网页链接 (HTML)", variable=self.var_type, value="网页链接 HTML", font=config.get_font(size=12), command=self._on_type_change).pack(side="left")
 
         # 💡 创新点 2：分类也改为单选按钮，并支持换行排列
@@ -158,7 +159,8 @@ class ProfileView(ctk.CTkFrame):
 
         self.lbl_file_title = ctk.CTkLabel(form_grid, text="* 工具文件:", text_color="red", font=config.get_font(size=12, weight="bold"))
         self.file_box = ctk.CTkFrame(form_grid, fg_color="transparent")
-        self.lbl_file_path = ctk.CTkLabel(self.file_box, text="必填：支持 .exe 或 .py", text_color="gray", font=config.get_font(size=12))
+        # 🔥 修改提示文字，明确支持 .zip
+        self.lbl_file_path = ctk.CTkLabel(self.file_box, text="必填：支持 .zip, .exe 或 .py", text_color="gray", font=config.get_font(size=12))
         self.lbl_file_path.pack(side="left", fill="x", expand=True)
         ctk.CTkButton(self.file_box, text="📁 浏览文件", width=90, font=config.get_font(size=12), command=self._select_upload_file).pack(side="right")
         
@@ -384,15 +386,23 @@ class ProfileView(ctk.CTkFrame):
             self._update_icon_preview(file_path)
 
     def _select_upload_file(self):
+        # 🔥 核心修改：在这里增加了对 .zip 格式的支持，并将 .zip 放在默认可见项中
         file_path = filedialog.askopenfilename(
             title="选择要发布的软件包", 
-            filetypes=[("可执行或脚本文件", "*.exe;*.py"), ("所有文件", "*.*")]
+            filetypes=[
+                ("支持的工具类型", "*.zip;*.exe;*.py"), 
+                ("文件夹压缩包 (含启动脚本)", "*.zip"),
+                ("单文件程序", "*.exe"),
+                ("Python 脚本", "*.py"),
+                ("所有文件", "*.*")
+            ]
         )
         if file_path:
             self.upload_file_path = file_path
             filename = os.path.basename(file_path)
             self.lbl_file_path.configure(text=filename, text_color=("#1F2937", "#F3F4F6"))
             if not self.entry_name.get():
+                # 自动截取文件名（去掉 .zip 或 .exe 等后缀）作为软件名填入输入框
                 self.entry_name.insert(0, os.path.splitext(filename)[0])
 
     def _start_upload_thread(self):
@@ -407,7 +417,8 @@ class ProfileView(ctk.CTkFrame):
                 return
         else:
             if not getattr(self, "upload_file_path", None):
-                messagebox.showwarning("验证失败", "带 * 号的为必选项：请先选择要上传的工具文件（.exe 或 .py）！")
+                # 🔥 验证提示同步修改
+                messagebox.showwarning("验证失败", "带 * 号的为必选项：请先选择要上传的工具文件（.zip, .exe 或 .py）！")
                 return
 
         self.btn_upload.configure(state="disabled", text="正在推送到云端，请稍候...")
@@ -475,6 +486,7 @@ class ProfileView(ctk.CTkFrame):
         self.entry_url.delete(0, 'end')
         self.upload_file_path = None
         self.upload_icon_path = None
-        self.lbl_file_path.configure(text="必填：支持 .exe 或 .py", text_color="gray")
+        # 🔥 上传成功后重置时的提示文字也改掉
+        self.lbl_file_path.configure(text="必填：支持 .zip, .exe 或 .py", text_color="gray")
         self.lbl_icon_path.configure(text="未选择", text_color="gray")
         self.icon_preview_lbl.configure(image="", text="🖼️")
