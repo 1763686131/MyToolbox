@@ -8,7 +8,7 @@ import customtkinter as ctk
 # 1. 基础外观与环境配置
 # ==========================================
 APP_TITLE = "千城工具箱"  #名字
-WINDOW_SIZE = "1050x650" #屏幕尺寸
+WINDOW_SIZE = "1050x700" #屏幕尺寸
 BG_COLOR = "#EDF5FC" #背景颜色
 
 # 用户登录状态
