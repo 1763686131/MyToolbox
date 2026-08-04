@@ -27,6 +27,7 @@ class MainApp(ctk.CTk):
         # 2. 挂载二级工具卡片网格容器
         self.grid_view = ToolGridView(self)
         self.grid_view.pack(fill="both", expand=True, padx=10, pady=10)
+        
 
         # 3. 💡 核心修复：动态默认选中 appdata.json 里的第一个分类（不再写死 "office"）
         if config.NAV_MENU:
@@ -39,6 +40,7 @@ class MainApp(ctk.CTk):
     def on_category_change(self, cat_id):
         """一级菜单切换触发"""
         self.grid_view.render_category(cat_id)
+        
 
 
 if __name__ == "__main__":
