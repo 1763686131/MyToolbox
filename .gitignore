@@ -4,13 +4,10 @@ __pycache__/
 *.pyo
 
 tools/
-<<<<<<< HEAD
 dist/
 build/
 
-=======
 assets/icon
->>>>>>> 94a1ec4281e074b90e46914375d2f1029d585d2d
 
 # 忽略所有编译后的字节码文件（保险起见）
 *.py[cod]
