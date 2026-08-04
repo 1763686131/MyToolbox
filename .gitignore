@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 
 tools/
+dist/
+build/
 
 
 # 忽略所有编译后的字节码文件（保险起见）
