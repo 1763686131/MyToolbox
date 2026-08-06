@@ -12,8 +12,10 @@ MyToolbox/
 │   └── tool_grid_view.py      # 工具网格展示卡片区 (二级页面)
 │
 └── views/                     # 📦 业务工具弹窗 (三级弹窗)
-    └── office/
-        └── pdf_crop_dialog.py # 📄 PDF截取合并工具 (独立弹窗 CTkToplevel)
+    ├── office/
+    │    └── pdf_crop_dialog.py # 📄 PDF截取合并工具 (独立弹窗 CTkToplevel)
+    └── profile/
+          └── profile_view.py   #个人中心文件
 
 ```
 

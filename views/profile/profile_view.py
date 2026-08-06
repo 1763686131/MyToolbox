@@ -153,7 +153,14 @@ class ProfileView(ctk.CTkFrame):
 
         self.lbl_icon_path = ctk.CTkLabel(icon_box, text="未选择", text_color="gray", font=config.get_font(size=12))
         self.lbl_icon_path.pack(side="left", fill="x", expand=True)
-        ctk.CTkButton(icon_box, text="本地浏览", width=70, font=config.get_font(size=12), command=self._select_icon_file).pack(side="right")
+        
+        # 1. 默认的本地上传图标按钮
+        self.btn_browse_icon = ctk.CTkButton(icon_box, text="本地浏览", width=70, font=config.get_font(size=12), command=self._select_icon_file)
+        self.btn_browse_icon.pack(side="right")
+
+        # 2. 🔥 新增：提取 EXE 图标按钮（初始状态为隐藏，只有检测到 .exe 才会 pack 显示）
+        self.btn_extract_exe_icon = ctk.CTkButton(icon_box, text="🪄 提取EXE图标", width=100, fg_color="#E6A23C", hover_color="#CF9236", font=config.get_font(size=12), command=self._start_extract_exe_icon)
+        # 注意：这里先不调用 .pack()，让它默认隐藏
 
         # ---------------- 动态切换区域 (网址 vs 文件) ----------------
 
@@ -386,7 +393,6 @@ class ProfileView(ctk.CTkFrame):
             self._update_icon_preview(file_path)
 
     def _select_upload_file(self):
-        # 🔥 核心修改：在这里增加了对 .zip 格式的支持，并将 .zip 放在默认可见项中
         file_path = filedialog.askopenfilename(
             title="选择要发布的软件包", 
             filetypes=[
@@ -401,9 +407,19 @@ class ProfileView(ctk.CTkFrame):
             self.upload_file_path = file_path
             filename = os.path.basename(file_path)
             self.lbl_file_path.configure(text=filename, text_color=("#1F2937", "#F3F4F6"))
+            
+            # 自动截取文件名填入输入框
             if not self.entry_name.get():
-                # 自动截取文件名（去掉 .zip 或 .exe 等后缀）作为软件名填入输入框
                 self.entry_name.insert(0, os.path.splitext(filename)[0])
+                
+            # 🔥 智能检测后缀：控制图标提取按钮的显隐
+            ext = os.path.splitext(filename)[1].lower()
+            if ext == ".exe":
+                # 是 exe 文件，显示“提取图标”按钮
+                self.btn_extract_exe_icon.pack(side="right", padx=(0, 10))
+            else:
+                # 是 zip 或其他文件，隐藏“提取图标”按钮，只留“本地浏览”
+                self.btn_extract_exe_icon.pack_forget()
 
     def _start_upload_thread(self):
         # 💡 前端强拦截：表单必填项预校验
@@ -490,3 +506,62 @@ class ProfileView(ctk.CTkFrame):
         self.lbl_file_path.configure(text="必填：支持 .zip, .exe 或 .py", text_color="gray")
         self.lbl_icon_path.configure(text="未选择", text_color="gray")
         self.icon_preview_lbl.configure(image="", text="🖼️")
+        if hasattr(self, 'btn_extract_exe_icon'):
+            self.btn_extract_exe_icon.pack_forget()
+
+
+    def _start_extract_exe_icon(self):
+        """前端校验并开启线程提取 EXE 图标"""
+        app_name = self.entry_name.get().strip()
+        if not app_name:
+            messagebox.showwarning("提示", "请先在上方填写【软件名称】，提取的图标将以此名字命名！")
+            return
+            
+        self.btn_extract_exe_icon.configure(state="disabled", text="提取中...")
+        threading.Thread(target=self._task_extract_exe_icon, args=(app_name,), daemon=True).start()
+
+    def _task_extract_exe_icon(self, app_name):
+        """后台线程实际执行提取与格式转换"""
+        try:
+            from icoextract import IconExtractor  # 局部导入，防止没装库时整个程序崩溃
+            
+            # 定义保存路径
+            icon_dir = os.path.join(config.BASE_DIR, "assets", "icon")
+            os.makedirs(icon_dir, exist_ok=True)
+            
+            # 🔥 严格按照填入的软件名称命名，例如：驱动大师.png
+            png_filename = f"{app_name}.png"
+            png_path = os.path.join(icon_dir, png_filename)
+            temp_ico = os.path.join(icon_dir, f"temp_exe_{int(time.time())}.ico")
+            
+            # 1. 从 EXE 中提取出原始 .ico
+            extractor = IconExtractor(self.upload_file_path)
+            extractor.export_icon(temp_ico)
+            
+            # ==========================================
+            # 2. 🔥 修复：使用 with 语句，转换完自动松开文件锁
+            # ==========================================
+            with Image.open(temp_ico) as img:
+                img.save(png_path, format="PNG")
+            
+            # 3. 删除临时文件 (这时候 PIL 已经松手，可以安全删除了)
+            if os.path.exists(temp_ico):
+                os.remove(temp_ico)
+
+            #4. 🔥 修复：更新前端界面数据 (直接渲染，防报错)
+            # ==========================================
+            self.upload_icon_path = png_path
+            
+            def update_ui():
+                # 读取刚才抠出来的高清 PNG
+                img = Image.open(png_path)
+                ctk_img = ctk.CTkImage(img, size=(32, 32))
+                # 把图片贴到界面的预览框里
+                self.icon_preview_lbl.configure(image=ctk_img, text="")
+                self.lbl_icon_path.configure(text=png_filename, text_color=("#1F2937", "#F3F4F6"))
+
+            # 扔给主线程去安全更新 UI
+            self.after(0, update_ui)
+            
+        except ImportError:
+            self.after(0, lambda: messagebox.showerror("缺少组件", "请在终端运行: pip install icoextract Pillow"))
