@@ -417,6 +417,10 @@ class ProfileView(ctk.CTkFrame):
             if ext == ".exe":
                 # 是 exe 文件，显示“提取图标”按钮
                 self.btn_extract_exe_icon.pack(side="right", padx=(0, 10))
+                # ==========================================
+                # 🔥 修复BUG：每次重新选择 exe 文件时，强制重置按钮状态
+                # ==========================================
+                self.btn_extract_exe_icon.configure(state="normal", text="提取EXE图标")
             else:
                 # 是 zip 或其他文件，隐藏“提取图标”按钮，只留“本地浏览”
                 self.btn_extract_exe_icon.pack_forget()
